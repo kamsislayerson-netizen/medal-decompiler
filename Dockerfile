@@ -1,9 +1,70 @@
-FROM rust:latest AS builder
-WORKDIR /app
-COPY . .
-RUN cargo build --release --bin medal
-RUN strip target/release/medal
+# Build stage for Rust binary
+FROM rust:latest as builder
 
-FROM debian:12-slim AS runtime
-COPY --from=builder /app/target/release/medal /bin/medal
-ENTRYPOINT ["/bin/medal"]
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy root workspace files
+COPY Cargo.toml ./
+
+# Copy all EXISTING member Cargo.toml files only
+COPY cfg/Cargo.toml ./cfg/
+COPY ast/Cargo.toml ./ast/
+COPY lua51-lifter/Cargo.toml ./lua51-lifter/
+COPY lua51-deserializer/Cargo.toml ./lua51-deserializer/
+COPY restructure/Cargo.toml ./restructure/
+COPY luau-lifter/Cargo.toml ./luau-lifter/
+COPY luau-worker/Cargo.toml ./luau-worker/
+
+# Create stub src files for dependency caching
+RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
+    restructure/src luau-lifter/src luau-worker/src && \
+    # Binary crates: create main.rs
+    for d in lua51-lifter lua51-deserializer restructure luau-lifter; do \
+        echo "fn main() {}" > $d/src/main.rs; \
+    done && \
+    # Library crates: create lib.rs
+    for d in cfg ast luau-worker; do \
+        echo "pub fn stub() {}" > $d/src/lib.rs; \
+    done
+
+# Generate fresh lock file and build dependencies
+RUN cargo generate-lockfile && cargo build --release
+
+# Copy actual source code (overwrites stubs)
+COPY . .
+
+# Build the final binary - luau-lifter is the correct binary
+RUN cargo build --release --bin luau-lifter
+
+# Runtime stage
+FROM node:22-slim
+
+# Install runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends lua5.1 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/app
+
+# Copy Node.js files
+COPY package*.json ./
+RUN npm install --only=production
+
+# Copy application code
+COPY server.js ./
+
+# Copy the built Rust binary from builder stage
+COPY --from=builder /app/target/release/luau-lifter /usr/local/bin/luau-lifter
+
+# Make binary executable and create non-root user
+RUN chmod +x /usr/local/bin/luau-lifter && \
+    groupadd -r nodejs && useradd -r -g nodejs nodejs
+USER nodejs
+
+EXPOSE 8080
+CMD ["node", "server.js"]
