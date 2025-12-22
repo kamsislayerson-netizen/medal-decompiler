@@ -11,7 +11,7 @@ RUN apt-get update && \
 # Copy root workspace files
 COPY Cargo.toml ./
 
-# Copy all EXISTING member Cargo.toml files only
+# Copy all member Cargo.toml files
 COPY cfg/Cargo.toml ./cfg/
 COPY ast/Cargo.toml ./ast/
 COPY lua51-lifter/Cargo.toml ./lua51-lifter/
@@ -19,12 +19,13 @@ COPY lua51-deserializer/Cargo.toml ./lua51-deserializer/
 COPY restructure/Cargo.toml ./restructure/
 COPY luau-lifter/Cargo.toml ./luau-lifter/
 COPY luau-worker/Cargo.toml ./luau-worker/
+COPY medal/Cargo.toml ./medal/  # <-- ADD THIS
 
 # Create stub src files for dependency caching
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
-    restructure/src luau-lifter/src luau-worker/src && \
+    restructure/src luau-lifter/src luau-worker/src medal/src && \  # <-- ADD medal/src
     # Binary crates: create main.rs
-    for d in lua51-lifter lua51-deserializer restructure luau-lifter; do \
+    for d in lua51-lifter lua51-deserializer restructure luau-lifter medal; do \  # <-- ADD medal
         echo "fn main() {}" > $d/src/main.rs; \
     done && \
     # Library crates: create lib.rs
@@ -38,8 +39,8 @@ RUN cargo generate-lockfile && cargo build --release
 # Copy actual source code (overwrites stubs)
 COPY . .
 
-# Build the final binary - luau-lifter is the correct binary
-RUN cargo build --release --bin luau-lifter
+# Build the final binary - medal is the main binary
+RUN cargo build --release --bin medal
 
 # Runtime stage
 FROM node:22-slim
@@ -59,10 +60,10 @@ RUN npm install --only=production
 COPY server.js ./
 
 # Copy the built Rust binary from builder stage
-COPY --from=builder /app/target/release/luau-lifter /usr/local/bin/luau-lifter
+COPY --from=builder /app/target/release/medal /usr/local/bin/medal
 
 # Make binary executable and create non-root user
-RUN chmod +x /usr/local/bin/luau-lifter && \
+RUN chmod +x /usr/local/bin/medal && \
     groupadd -r nodejs && useradd -r -g nodejs nodejs
 USER nodejs
 
