@@ -19,16 +19,15 @@ COPY lua51-deserializer/Cargo.toml ./lua51-deserializer/
 COPY restructure/Cargo.toml ./restructure/
 COPY luau-lifter/Cargo.toml ./luau-lifter/
 COPY luau-worker/Cargo.toml ./luau-worker/
-COPY medal/Cargo.toml ./medal/  # <-- ADD THIS
+COPY medal/Cargo.toml ./medal/
 
 # Create stub src files for dependency caching
+# Comments removed from the multi-line RUN command below
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
-    restructure/src luau-lifter/src luau-worker/src medal/src && \  # <-- ADD medal/src
-    # Binary crates: create main.rs
-    for d in lua51-lifter lua51-deserializer restructure luau-lifter medal; do \  # <-- ADD medal
+    restructure/src luau-lifter/src luau-worker/src medal/src && \
+    for d in lua51-lifter lua51-deserializer restructure luau-lifter medal; do \
         echo "fn main() {}" > $d/src/main.rs; \
     done && \
-    # Library crates: create lib.rs
     for d in cfg ast luau-worker; do \
         echo "pub fn stub() {}" > $d/src/lib.rs; \
     done
