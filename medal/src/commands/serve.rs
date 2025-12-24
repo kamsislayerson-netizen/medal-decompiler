@@ -97,4 +97,3 @@ impl IntoResponse for AppError {
         (status, msg).into_response()
     }
 }
-}
