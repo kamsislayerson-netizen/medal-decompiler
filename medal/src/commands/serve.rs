@@ -53,7 +53,7 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
 
     // Serve static files from public directory
     // This will serve index.html at /, and other files like /style.css, /script.js, etc.
-    app = app.nest_service("/", ServeDir::new("public"));
+    app = app.nest_service("index.html", ServeDir::new("public"));
 
     // Add CORS for browser frontend access
     let cors = CorsLayer::new()
