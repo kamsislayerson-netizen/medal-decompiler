@@ -1,17 +1,16 @@
-# Build stage for Rust binary
-FROM rust:latest as builder
+# ============================================================================
+# Stage 1: Builder - Compile the Rust workspace
+# ============================================================================
+FROM rust:1.75-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
-# Copy root workspace files
+# Copy all Cargo.toml files for dependency caching
 COPY Cargo.toml ./
-
-# Copy all member Cargo.toml files
 COPY cfg/Cargo.toml ./cfg/
 COPY ast/Cargo.toml ./ast/
 COPY lua51-lifter/Cargo.toml ./lua51-lifter/
@@ -21,8 +20,7 @@ COPY luau-lifter/Cargo.toml ./luau-lifter/
 COPY luau-worker/Cargo.toml ./luau-worker/
 COPY medal/Cargo.toml ./medal/
 
-# Create stub src files for dependency caching
-# Comments removed from the multi-line RUN command below
+# Generate stub files to build dependency layers
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
     restructure/src luau-lifter/src luau-worker/src medal/src && \
     for d in lua51-lifter lua51-deserializer restructure luau-lifter medal; do \
@@ -32,39 +30,38 @@ RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
         echo "pub fn stub() {}" > $d/src/lib.rs; \
     done
 
-# Generate fresh lock file and build dependencies
+# Build dependencies (cached layer)
 RUN cargo generate-lockfile && cargo build --release
 
-# Copy actual source code (overwrites stubs)
+# Copy actual source code and build final binary
 COPY . .
-
-# Build the final binary - medal is the main binary
 RUN cargo build --release --bin medal
 
-# Runtime stage
-FROM node:22-slim
+# ============================================================================
+# Stage 2: Runtime - Minimal production image
+# ============================================================================
+FROM debian:bookworm-slim
 
-# Install runtime dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends lua5.1 && \
-    rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies (ca-certificates for HTTPS)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/app
+# Create non-root user
+RUN groupadd -r medal && useradd -r -g medal medal
 
-# Copy Node.js files
-COPY package*.json ./
-RUN npm install --only=production
-
-# Copy application code
-COPY server.js ./
-
-# Copy the built Rust binary from builder stage
+# Copy the built binary from builder stage
 COPY --from=builder /app/target/release/medal /usr/local/bin/medal
+RUN chmod +x /usr/local/bin/medal
 
-# Make binary executable and create non-root user
-RUN chmod +x /usr/local/bin/medal && \
-    groupadd -r nodejs && useradd -r -g nodejs nodejs
-USER nodejs
+# Switch to non-root user
+USER medal
 
+# Expose port (Render will override this with $PORT)
 EXPOSE 8080
-CMD ["node", "server.js"]
+
+# Health check (for Docker)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+
+# Run the server (renders like serve.rs)
+CMD ["medal", "serve", "--luau", "--lua51"]
