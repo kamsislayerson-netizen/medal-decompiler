@@ -1,13 +1,16 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-FROM rustlang/rust:nightly as builder
+FROM rust:nightly as builder
 
 WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+
+# Copy cargo config FIRST to enable nightly features
+COPY .cargo/ ./.cargo/
 
 # Copy all Cargo.toml files for dependency caching
 COPY Cargo.toml ./
