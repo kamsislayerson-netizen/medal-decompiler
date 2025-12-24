@@ -55,7 +55,7 @@ RUN chmod +x /usr/local/bin/medal
 USER medal
 
 # Expose port
-EXPOSE 8080
+EXPOSE 10000
 
 # Run the server
 CMD ["medal", "serve", "--luau"]
