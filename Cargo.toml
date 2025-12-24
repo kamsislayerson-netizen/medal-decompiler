@@ -1,5 +1,5 @@
 [workspace]
-resolver = "2"  # Fixed: "3" is invalid, only "1" or "2" are valid
+resolver = "2"
 members = [
     "cfg",
     "ast",
@@ -12,13 +12,17 @@ members = [
 ]
 
 [workspace.package]
-edition = "2021"  # Fixed: "2024" doesn't exist yet in Rust 1.75
+edition = "2021"
 authors = [
     "Mathias Pedersen <mathias.pedersen834@gmail.com>",
     "Jujhar Singh <jujharsmc@gmail.com>",
     "Amit Bashan <amit.bashan@icloud.com>",
     "Stefanuk12",
 ]
+
+# Allow nightly features
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(nightly)'] }
 
 [profile.release]
 debug = true
