@@ -1,4 +1,4 @@
-use axum::{
+use ax_um::{
     body::Bytes,
     extract::Query,
     http::StatusCode,
@@ -12,7 +12,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::{error, info};
 
-// Configuration
+// Configuration for Render and Feature Flags
 #[derive(Deserialize, Clone)]
 pub struct ServeConfig {
     pub port: u16,
@@ -20,7 +20,6 @@ pub struct ServeConfig {
     pub lua51: bool,
 }
 
-// Query parameters for Luau encode key
 #[derive(Deserialize)]
 struct LuauQuery {
     #[serde(default = "default_encode_key")]
@@ -29,33 +28,31 @@ struct LuauQuery {
 
 pub const fn default_encode_key() -> u8 { 203 }
 
-// Main server function
 pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
 
-    // Setup Static File Service
-    // ServeDir looks into the "public" folder. 
-    // ServeFile is the fallback so visiting "/" returns index.html.
+    // Setup the Static File Service
+    // ServeDir handles assets; ServeFile ensures the root / returns index.html
     let serve_dir = ServeDir::new("public")
         .not_found_service(ServeFile::new("public/index.html"));
 
     let mut app = Router::new()
         .route("/health", get(|| async { (StatusCode::OK, "OK") }));
 
-    // Register API endpoints based on flags
+    // API Routes
     if config.luau {
-        info!("✅ Luau endpoint: POST /luau/decompile");
+        info!("✅ Luau endpoint active: /luau/decompile");
         app = app.route("/luau/decompile", post(decompile_luau));
     }
 
     if config.lua51 {
-        info!("✅ Lua 5.1 endpoint: POST /lua51/decompile");
+        info!("✅ Lua 5.1 endpoint active: /lua51/decompile");
         app = app.route("/lua51/decompile", post(decompile_lua51));
     }
 
-    // Apply CORS and Static Files
+    // Combine API with Static Files and CORS
     let app = app
-        .fallback_service(serve_dir)
+        .fallback_service(serve_dir) 
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
@@ -64,7 +61,7 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
         );
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    info!("🚀 Server starting on http://{}", addr);
+    info!("🚀 Decompiler active at http://{}", addr);
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -72,20 +69,19 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
-// Handlers
+// Handlers for decompilation
 async fn decompile_luau(Query(query): Query<LuauQuery>, body: Bytes) -> Result<String, AppError> {
-    if body.is_empty() { return Err(AppError::BadRequest("No bytecode".into())); }
-    // Call your actual logic here:
-    // crate::commands::decompile_no_io(body, query.encode_key, false)
-    Ok("-- Luau Decompiled Code".to_string())
+    if body.is_empty() { return Err(AppError::BadRequest("No bytecode provided".into())); }
+    // Call your actual logic: crate::commands::decompile_no_io(body, query.encode_key, false)
+    Ok("-- Result from Luau Decompiler".to_string())
 }
 
 async fn decompile_lua51(body: Bytes) -> Result<String, AppError> {
-    if body.is_empty() { return Err(AppError::BadRequest("No bytecode".into())); }
-    Ok("-- Lua 5.1 Decompiled Code".to_string())
+    if body.is_empty() { return Err(AppError::BadRequest("No bytecode provided".into())); }
+    Ok("-- Result from Lua 5.1 Decompiler".to_string())
 }
 
-// Error Handling
+// Error Management
 #[derive(Debug)]
 enum AppError {
     BadRequest(String),
@@ -100,4 +96,5 @@ impl IntoResponse for AppError {
         };
         (status, msg).into_response()
     }
+}
 }
