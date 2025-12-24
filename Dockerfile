@@ -1,7 +1,8 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-FROM rust:latest as builder  # Changed to latest
+# Changed to latest Rust version
+FROM rust:latest as builder
 
 WORKDIR /app
 
@@ -21,7 +22,6 @@ COPY luau-worker/Cargo.toml ./luau-worker/
 COPY medal/Cargo.toml ./medal/
 
 # Generate stub files to build dependency layers
-# Adjusted for actual crate types
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
     restructure/src luau-lifter/src luau-worker/src medal/src && \
     for d in lua51-lifter lua51-deserializer restructure luau-lifter; do \
