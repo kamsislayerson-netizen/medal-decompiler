@@ -1,6 +1,8 @@
 name: Build and Release
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -24,7 +26,7 @@ jobs:
       version: ${{ steps.read_toml.outputs.value }}
 
   draft-release:
-    name: Create a draft release
+    name: Create a release
     runs-on: ubuntu-latest
     needs: get-data
     permissions:
@@ -40,7 +42,7 @@ jobs:
       - name: Create Release
         uses: ncipollo/release-action@v1.14.0
         with:
-          draft: true
+          draft: false
           tag: ${{ steps.tag_version.outputs.new_tag }}
           name: Release ${{ steps.tag_version.outputs.new_tag }}
     outputs:
@@ -56,15 +58,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Linux (Render uses this)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: medal-x86_64-linux-musl
+
           # Windows
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: medal-x86_64.exe
-
-          # Linux
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            artifact_name: medal-x86_64-linux-musl
 
           # macOS
           - os: macos-latest
@@ -78,26 +80,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@master
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@nightly
         with:
           target: ${{ matrix.target }}
-          profile: minimal
-          toolchain: nightly
-          override: true
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./medal -> target"
-        
+
+      - name: Install musl tools (Linux only)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
       - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: "build"
-          target: ${{ matrix.target }}
-          args: "-p medal --release"
-          toolchain: "nightly"
-          strip: true
+        run: cargo build --release --bin medal --target ${{ matrix.target }}
+
+      - name: Strip binary
+        run: strip target/${{ matrix.target }}/release/medal
 
       - name: Rename artifact
         shell: bash
