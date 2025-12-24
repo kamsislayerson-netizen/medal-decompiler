@@ -1,16 +1,15 @@
 [package]
 name = "medal"
 version = "0.1.1"
-edition.workspace = true
-authors.workspace = true
-default-run = "medal"
+edition = "2021"
 
+# Dependencies should reference local crates properly
 [dependencies]
 axum = "0.8"
 base64 = "0.22"
 clap = { version = "4.5", features = ["derive"] }
-lua51-lifter = { path = "../lua51-lifter" }
-luau-lifter = { path = "../luau-lifter" }
+lua51-lifter = { path = "../lua51-lifter" }  # Only if lua51-lifter is a lib
+luau-lifter = { path = "../luau-lifter" }    # Only if luau-lifter is a lib
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.42", features = ["rt-multi-thread", "macros"] }
 tower-http = { version = "0.6", features = ["cors"] }
