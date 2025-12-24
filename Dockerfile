@@ -1,8 +1,7 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-# Use nightly Rust for 2024 edition features
-FROM rustlang/rust:nightly-slim as builder
+FROM rustlang/rust:nightly as builder
 
 WORKDIR /app
 
@@ -24,11 +23,9 @@ COPY medal/Cargo.toml ./medal/
 # Generate stub files to build dependency layers
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
     restructure/src luau-lifter/src luau-worker/src medal/src && \
-    # Create lib.rs for all library crates
     for d in cfg ast lua51-lifter lua51-deserializer restructure luau-lifter luau-worker; do \
         echo "pub fn stub() {}" > $d/src/lib.rs; \
     done && \
-    # Create main.rs for binary crate
     echo "fn main() {}" > medal/src/main.rs
 
 # Build dependencies (cached layer)
