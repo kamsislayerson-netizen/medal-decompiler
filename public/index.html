@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lua Decompiler</title>
+    <style>
+        :root {
+            --bg: #0d1117; --card: #161b22; --accent: #238636;
+            --border: #30363d; --text: #c9d1d9; --text-dim: #8b949e;
+        }
+        body {
+            margin: 0; font-family: -apple-system, sans-serif;
+            background: var(--bg); color: var(--text);
+            display: flex; flex-direction: column; height: 100vh;
+        }
+        header {
+            padding: 1rem 2rem; background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        main { display: grid; grid-template-columns: 320px 1fr; flex: 1; overflow: hidden; }
+        .sidebar {
+            padding: 1.5rem; background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 1.2rem;
+        }
+        .drop-zone {
+            border: 2px dashed var(--border); border-radius: 8px;
+            padding: 2rem 1rem; text-align: center; cursor: pointer;
+        }
+        .drop-zone:hover { border-color: var(--accent); background: #1c2128; }
+        select, input {
+            width: 100%; background: var(--bg); border: 1px solid var(--border);
+            color: white; padding: 0.5rem; border-radius: 5px; margin-top: 5px;
+        }
+        .btn {
+            background: var(--accent); color: white; border: none;
+            padding: 0.8rem; border-radius: 5px; font-weight: bold; cursor: pointer;
+        }
+        .btn:disabled { opacity: 0.5; }
+        .output-container { display: flex; flex-direction: column; background: #000; position: relative; }
+        .output-header { 
+            padding: 8px 15px; background: #161b22; font-size: 12px; 
+            color: var(--text-dim); border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between;
+        }
+        pre { margin: 0; padding: 1.5rem; overflow: auto; flex: 1; font-family: monospace; color: #79c0ff; }
+        .copy-btn { cursor: pointer; color: var(--accent); background: none; border: none; font-size: 11px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div style="font-weight: bold;">LUA DECOMPILER</div>
+        <div id="status" style="font-size: 12px; color: var(--text-dim);">Ready</div>
+    </header>
+    <main>
+        <div class="sidebar">
+            <div>
+                <label style="font-size: 11px;">MODE</label>
+                <select id="mode">
+                    <option value="luau">Luau</option>
+                    <option value="lua51">Lua 5.1</option>
+                </select>
+            </div>
+            <div id="keyBox">
+                <label style="font-size: 11px;">ENCODE KEY</label>
+                <input type="number" id="key" value="203">
+            </div>
+            <div class="drop-zone" id="dropZone">
+                <span id="fileLabel">Drop .bin / .lua file</span>
+                <input type="file" id="fileInput" hidden>
+            </div>
+            <button class="btn" id="runBtn">DECOMPILE</button>
+        </div>
+        <div class="output-container">
+            <div class="output-header">
+                <span>SOURCE OUTPUT</span>
+                <button class="copy-btn" onclick="copyCode()">COPY</button>
+            </div>
+            <pre id="output">-- Results will appear here...</pre>
+        </div>
+    </main>
+
+    <script>
+        const mode = document.getElementById('mode');
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const runBtn = document.getElementById('runBtn');
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        let currentFile = null;
+
+        mode.onchange = () => document.getElementById('keyBox').style.display = mode.value === 'luau' ? 'block' : 'none';
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => { currentFile = e.target.files[0]; document.getElementById('fileLabel').innerText = currentFile.name; };
+
+        runBtn.onclick = async () => {
+            if(!currentFile) return alert("Select a file");
+            runBtn.disabled = true; status.innerText = "Processing...";
+            
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const url = mode.value === 'luau' ? `/luau/decompile?encode_key=${document.getElementById('key').value}` : `/lua51/decompile`;
+                try {
+                    const res = await fetch(url, { method: 'POST', body: reader.result });
+                    output.innerText = await res.text();
+                    status.innerText = res.ok ? "Done" : "Error";
+                } catch (e) { status.innerText = "Connection Failed"; }
+                runBtn.disabled = false;
+            };
+            reader.readAsArrayBuffer(currentFile);
+        };
+
+        function copyCode() {
+            navigator.clipboard.writeText(output.innerText);
+            alert("Copied!");
+        }
+    </script>
+</body>
+</html>
