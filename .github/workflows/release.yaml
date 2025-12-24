@@ -26,7 +26,7 @@ jobs:
       version: ${{ steps.read_toml.outputs.value }}
 
   draft-release:
-    name: Create a release
+    name: Create Release
     runs-on: ubuntu-latest
     needs: get-data
     permissions:
@@ -45,11 +45,12 @@ jobs:
           draft: false
           tag: ${{ steps.tag_version.outputs.new_tag }}
           name: Release ${{ steps.tag_version.outputs.new_tag }}
+          generateReleaseNotes: true
     outputs:
       tag: ${{ steps.tag_version.outputs.new_tag }}
   
   build:
-    name: Build on ${{ matrix.os }} for ${{ matrix.target }}
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     needs: draft-release
     permissions:
@@ -58,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux (Render uses this)
+          # Linux (for Render)
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             artifact_name: medal-x86_64-linux-musl
@@ -90,7 +91,7 @@ jobs:
         with:
           workspaces: "./medal -> target"
 
-      - name: Install musl tools (Linux only)
+      - name: Install musl tools (Linux)
         if: matrix.target == 'x86_64-unknown-linux-musl'
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
@@ -98,6 +99,7 @@ jobs:
         run: cargo build --release --bin medal --target ${{ matrix.target }}
 
       - name: Strip binary
+        if: matrix.target != 'x86_64-pc-windows-msvc'
         run: strip target/${{ matrix.target }}/release/medal
 
       - name: Rename artifact
@@ -110,7 +112,7 @@ jobs:
             mv "${ARTIFACT_DIR}/medal" "${ARTIFACT_DIR}/${{ matrix.artifact_name }}"
           fi
 
-      - name: Upload release asset
+      - name: Upload to Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
