@@ -1,22 +1,12 @@
 services:
   - type: web
-    name: luau-decompiler
+    name: luau-decompiler-rust
     env: docker
     dockerfilePath: ./Dockerfile
     plan: standard
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: PORT
-        value: 8080
-      - key: RUST_BINARY_PATH
-        value: /usr/local/bin/luau-lifter  # <-- Updated
+        value: 10000
       - key: RUST_LOG
         value: info
-      - key: MAX_FILE_SIZE
-        value: 5242880
-      - key: RATE_LIMIT_MAX_REQUESTS
-        value: 100
-      - key: BINARY_TIMEOUT
-        value: 30000
     healthCheckPath: /health
