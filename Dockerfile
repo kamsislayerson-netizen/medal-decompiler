@@ -1,7 +1,7 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-FROM rust:1.75-slim as builder
+FROM rust:latest as builder  # Changed to latest
 
 WORKDIR /app
 
@@ -21,14 +21,13 @@ COPY luau-worker/Cargo.toml ./luau-worker/
 COPY medal/Cargo.toml ./medal/
 
 # Generate stub files to build dependency layers
+# Adjusted for actual crate types
 RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
     restructure/src luau-lifter/src luau-worker/src medal/src && \
-    for d in lua51-lifter lua51-deserializer restructure luau-lifter medal; do \
-        echo "fn main() {}" > $d/src/main.rs; \
-    done && \
-    for d in cfg ast luau-worker; do \
+    for d in lua51-lifter lua51-deserializer restructure luau-lifter; do \
         echo "pub fn stub() {}" > $d/src/lib.rs; \
-    done
+    done && \
+    echo "fn main() {}" > medal/src/main.rs
 
 # Build dependencies (cached layer)
 RUN cargo generate-lockfile && cargo build --release
@@ -42,7 +41,7 @@ RUN cargo build --release --bin medal
 # ============================================================================
 FROM debian:bookworm-slim
 
-# Install runtime dependencies (ca-certificates for HTTPS)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates && rm -rf /var/lib/apt/lists/*
 
@@ -56,12 +55,8 @@ RUN chmod +x /usr/local/bin/medal
 # Switch to non-root user
 USER medal
 
-# Expose port (Render will override this with $PORT)
+# Expose port
 EXPOSE 8080
 
-# Health check (for Docker)
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
-
-# Run the server (renders like serve.rs)
-CMD ["medal", "serve", "--luau", "--lua51"]
+# Run the server
+CMD ["medal", "serve", "--luau"]
