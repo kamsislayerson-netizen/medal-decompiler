@@ -1,16 +1,13 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-FROM rust:nightly as builder
+FROM rust:1.75-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies (include sed for text replacement)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
-
-# Copy cargo config FIRST to enable nightly features
-COPY .cargo/ ./.cargo/
+    pkg-config libssl-dev sed && rm -rf /var/lib/apt/lists/*
 
 # Copy all Cargo.toml files for dependency caching
 COPY Cargo.toml ./
@@ -34,8 +31,16 @@ RUN mkdir -p cfg/src ast/src lua51-lifter/src lua51-deserializer/src \
 # Build dependencies (cached layer)
 RUN cargo generate-lockfile && cargo build --release
 
-# Copy actual source code and build final binary
+# Copy actual source code
 COPY . .
+
+# Fix let chains syntax for Rust 2021 compatibility
+RUN sed -i 's/&& let Some((_, next)) = iter.peek()/&& matches!(iter.peek(), Some((_, _)))/g' ast/src/formatter.rs && \
+    sed -i 's/&& let RValue::Closure(closure) = &assign.right\[0\]/&& matches!(&assign.right[0], RValue::Closure(_))/g' ast/src/formatter.rs && \
+    sed -i 's/if let box RValue::Literal(Literal::String(key)) = &index.right/if let RValue::Literal(Literal::String(key)) = &*index.right/g' ast/src/formatter.rs && \
+    sed -i 's/while let (block, parent_stat_index) = self.graph.node_weight(node).unwrap()/while let Some((block, parent_stat_index)) = self.graph.node_weight(node)/g' ast/src/local_declarations.rs && \
+    sed -i 's/.unwrap()//g' ast/src/local_declarations.rs
+
 RUN cargo build --release --bin medal
 
 # ============================================================================
