@@ -9,6 +9,7 @@ use axum::{
 use serde::Deserialize;
 use std::net::SocketAddr;
 use tower_http::cors::{CorsLayer, Any};
+use tower_http::services::ServeDir;
 use tracing::{info, error, warn};
 use crate::commands::decompile_no_io;
 
@@ -48,8 +49,11 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
     tracing_subscriber::fmt::init();
     
     let mut app = Router::new()
-        .route("/health", get(health_check))
-        .route("/", get(root));
+        .route("/health", get(health_check));
+
+    // Serve static files from public directory
+    // This will serve index.html at /, and other files like /style.css, /script.js, etc.
+    app = app.nest_service("/", ServeDir::new("public"));
 
     // Add CORS for browser frontend access
     let cors = CorsLayer::new()
@@ -75,6 +79,7 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     info!("🚀 Starting server on {}", addr);
     info!("💡 Health check: http://{}/health", addr);
+    info!("📁 Serving static files from: ./public");
     
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
@@ -84,11 +89,6 @@ pub async fn serve(config: ServeConfig) -> Result<(), std::io::Error> {
 // Health check (required by Render)
 async fn health_check() -> impl IntoResponse {
     (StatusCode::OK, "OK")
-}
-
-// Root endpoint info
-async fn root() -> impl IntoResponse {
-    "🎯 Luau Decompiler API\n\nEndpoints:\n  POST /luau/decompile?encode_key=203\n  POST /lua51/decompile"
 }
 
 // Luau decompilation handler
