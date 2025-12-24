@@ -1,7 +1,8 @@
 # ============================================================================
 # Stage 1: Builder - Compile the Rust workspace
 # ============================================================================
-FROM rust:latest as builder
+# Use nightly Rust for 2024 edition features
+FROM rustlang/rust:nightly-slim as builder
 
 WORKDIR /app
 
