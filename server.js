@@ -48,8 +48,8 @@ app.get('/health', (req, res) => {
     res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Decompile endpoint
-app.post('/decompile', async (req, res) => {
+// Decompile endpoint - UPDATED TO /luau/decompile
+app.post('/luau/decompile', async (req, res) => {
     let tempFilePath = null;
 
     try {
