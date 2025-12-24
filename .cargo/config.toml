@@ -1,0 +1,5 @@
+[build]
+rustflags = ["--cfg", "nightly"]
+
+[env]
+RUSTC_BOOTSTRAP = "1"  # Allow nightly features on stable
